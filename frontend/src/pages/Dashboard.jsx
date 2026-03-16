@@ -55,17 +55,17 @@ export default function Dashboard() {
 
         <div className="row g-3">
           <div className="col-12 col-md-6 col-lg-4">
-            <Link className="card-link" to="/reports#classRoster">
+            <Link className="card-link" to="/reports?view=marks">
               <div className="card shadow-sm h-100 feature-tile">
                 <div className="card-body">
                   <div className="h5 mb-1">View Student Marks</div>
-                  <div className="text-muted">See class roster with totals and ranks</div>
+                  <div className="text-muted">See subject marks for each student</div>
                 </div>
               </div>
             </Link>
           </div>
           <div className="col-12 col-md-6 col-lg-4">
-            <Link className="card-link" to="/reports#classRoster">
+            <Link className="card-link" to="/reports?view=class">
               <div className="card shadow-sm h-100 feature-tile">
                 <div className="card-body">
                   <div className="h5 mb-1">Generate Class Report</div>
@@ -75,7 +75,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="col-12 col-md-6 col-lg-4">
-            <Link className="card-link" to="/reports#studentResult">
+            <Link className="card-link" to="/reports?view=student">
               <div className="card shadow-sm h-100 feature-tile">
                 <div className="card-body">
                   <div className="h5 mb-1">Generate Individual Report</div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import Alert from '../components/Alert.jsx';
 import { useApi } from '../hooks/useApi.js';
@@ -25,6 +26,14 @@ function classKeyFor(student) {
 
 export default function Reports() {
   const api = useApi();
+  const location = useLocation();
+
+  const activeView = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    if (view === 'marks' || view === 'class' || view === 'student') return view;
+    return 'class';
+  }, [location.search]);
 
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null);
@@ -51,6 +60,9 @@ export default function Reports() {
     return Array.from(map.values());
   }, [reports]);
 
+  const showRoster = activeView === 'marks' || activeView === 'class';
+  const showStudentPanel = activeView === 'student';
+
   useEffect(() => {
     if (classOptions.length === 0) {
       setSelectedClassKey('');
@@ -71,6 +83,28 @@ export default function Reports() {
 
   const rankedReports = useMemo(() => applyDenseRank(filteredReports), [filteredReports]);
 
+  const tableReports = useMemo(() => {
+    if (activeView === 'class') return rankedReports;
+    const byName = [...filteredReports];
+    byName.sort((a, b) => {
+      const nameA = (a.student?.student_name ?? '').toLowerCase();
+      const nameB = (b.student?.student_name ?? '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    return byName;
+  }, [activeView, filteredReports, rankedReports]);
+
+  const classSummary = useMemo(() => {
+    const totalStudents = rankedReports.length;
+    const passCount = rankedReports.filter((r) => r.status === 'PASS').length;
+    const failCount = totalStudents - passCount;
+    const average =
+      totalStudents > 0
+        ? (rankedReports.reduce((sum, r) => sum + (r.average ?? 0), 0) / totalStudents).toFixed(2)
+        : '0.00';
+    return { totalStudents, passCount, failCount, average };
+  }, [rankedReports]);
+
   useEffect(() => {
     if (!selectedStudentId) return;
     const id = Number(selectedStudentId);
@@ -78,6 +112,14 @@ export default function Reports() {
       setSelectedStudentId('');
     }
   }, [rankedReports, selectedStudentId]);
+
+  useEffect(() => {
+    if (activeView !== 'student') return;
+    if (selectedStudentId) return;
+    if (rankedReports.length > 0) {
+      setSelectedStudentId(String(rankedReports[0].student.student_id));
+    }
+  }, [activeView, rankedReports, selectedStudentId]);
 
   const selectedReport = useMemo(() => {
     const id = selectedStudentId ? Number(selectedStudentId) : null;
@@ -95,7 +137,27 @@ export default function Reports() {
     };
   }, [classOptions, rankedReports, selectedClassKey]);
 
-  const rosterColSpan = 7 + subjects.length;
+  const viewTitle =
+    activeView === 'marks'
+      ? 'View Student Marks'
+      : activeView === 'class'
+        ? 'Class Report'
+        : 'Individual Report';
+  const viewSubtitle =
+    activeView === 'marks'
+      ? 'Browse subject marks for each student'
+      : activeView === 'class'
+        ? 'Totals, averages, ranks and PASS/FAIL'
+        : 'Generate a single student result sheet';
+  const rosterTitle = activeView === 'marks' ? 'Student Marks' : 'Class Report';
+
+  const rosterExtraCols = activeView === 'class' ? 4 : 0;
+  const rosterColSpan = 3 + subjects.length + rosterExtraCols;
+
+  const showPrint = activeView === 'class' || activeView === 'student';
+  const canPrint =
+    activeView === 'class' ? rankedReports.length > 0 : Boolean(selectedReport);
+  const printLabel = activeView === 'class' ? 'Print Class Report' : 'Print Student Report';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,26 +201,29 @@ export default function Reports() {
     <main className="container py-4 report-shell">
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div>
-          <h1 className="h4 mb-1">Report Generation</h1>
-          <div className="text-muted small">Totals, averages, ranks and PASS/FAIL</div>
+          <h1 className="h4 mb-1">{viewTitle}</h1>
+          <div className="text-muted small">{viewSubtitle}</div>
         </div>
-        <button
-          className="btn btn-outline-secondary btn-sm"
-          type="button"
-          onClick={onPrint}
-          disabled={!selectedReport}
-        >
-          Print
-        </button>
+        {showPrint ? (
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            type="button"
+            onClick={onPrint}
+            disabled={!canPrint}
+          >
+            {printLabel}
+          </button>
+        ) : null}
       </div>
 
       <Alert alert={alert} onClose={() => setAlert(null)} />
 
       <div className="row g-3">
-        <div className="col-12 col-lg-8">
-          <div className="card shadow-sm roster-card" id="classRoster">
+        {showRoster ? (
+          <div className="col-12">
+            <div className="card shadow-sm roster-card" id="classRoster">
             <div className="roster-banner">
-              <div className="roster-title">Student Academic Roster</div>
+              <div className="roster-title">{rosterTitle}</div>
               <div className="roster-meta">
                 Grade: {classMeta?.grade || '-'} | Homeroom Teacher:{' '}
                 {classMeta?.homeroom_teacher || 'Not assigned'} | Academic Year:{' '}
@@ -167,7 +232,9 @@ export default function Reports() {
             </div>
             <div className="card-body">
               <div className="d-flex flex-wrap align-items-center justify-content-between mb-2 gap-2">
-                <div className="small text-muted">Class Ranking</div>
+                <div className="small text-muted">
+                  {activeView === 'marks' ? 'Student marks' : 'Class ranking'}
+                </div>
                 <div className="d-flex flex-wrap align-items-center gap-2">
                   <select
                     className="form-select form-select-sm"
@@ -192,6 +259,14 @@ export default function Reports() {
                   </button>
                 </div>
               </div>
+              {activeView === 'class' ? (
+                <div className="d-flex flex-wrap gap-3 small text-muted mb-2">
+                  <span>Students: {classSummary.totalStudents}</span>
+                  <span>Pass: {classSummary.passCount}</span>
+                  <span>Fail: {classSummary.failCount}</span>
+                  <span>Class Avg: {classSummary.average}</span>
+                </div>
+              ) : null}
               <div className="table-responsive">
                 <table className="table table-sm table-striped mb-0 roster-table">
                   <thead className="table-light">
@@ -204,10 +279,14 @@ export default function Reports() {
                           {sub.subject_name}
                         </th>
                       ))}
-                      <th style={{ width: 90 }}>Total</th>
-                      <th style={{ width: 90 }}>Avg</th>
-                      <th style={{ width: 80 }}>Rank</th>
-                      <th style={{ width: 110 }}>Status</th>
+                      {activeView === 'class' ? (
+                        <>
+                          <th style={{ width: 90 }}>Total</th>
+                          <th style={{ width: 90 }}>Avg</th>
+                          <th style={{ width: 80 }}>Rank</th>
+                          <th style={{ width: 110 }}>Status</th>
+                        </>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -217,14 +296,14 @@ export default function Reports() {
                           Loading...
                         </td>
                       </tr>
-                    ) : rankedReports.length === 0 ? (
+                    ) : tableReports.length === 0 ? (
                       <tr>
                         <td colSpan={rosterColSpan} className="text-center text-muted py-3">
                           No students found.
                         </td>
                       </tr>
                     ) : (
-                      rankedReports.map((r) => {
+                      tableReports.map((r) => {
                         const marksBySubject = new Map(
                           (r.subjectMarks ?? []).map((m) => [m.subject_id, m.mark])
                         );
@@ -252,16 +331,22 @@ export default function Reports() {
                                 </td>
                               );
                             })}
-                            <td className="fw-semibold">{r.total}</td>
-                            <td>{r.average}</td>
-                            <td className="fw-semibold">{r.rank}</td>
-                            <td>
-                              <span
-                                className={`status-pill ${r.status === 'PASS' ? 'status-pass' : 'status-fail'}`}
-                              >
-                                {r.status}
-                              </span>
-                            </td>
+                            {activeView === 'class' ? (
+                              <>
+                                <td className="fw-semibold">{r.total}</td>
+                                <td>{r.average}</td>
+                                <td className="fw-semibold">{r.rank}</td>
+                                <td>
+                                  <span
+                                    className={`status-pill ${
+                                      r.status === 'PASS' ? 'status-pass' : 'status-fail'
+                                    }`}
+                                  >
+                                    {r.status}
+                                  </span>
+                                </td>
+                              </>
+                            ) : null}
                           </tr>
                         );
                       })
@@ -270,13 +355,20 @@ export default function Reports() {
                 </table>
               </div>
             </div>
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className="col-12 col-lg-4">
-          <div className="card shadow-sm result-card" id="studentResult">
+        {showStudentPanel ? (
+          <div className="col-12">
+            <div className="card shadow-sm result-card" id="studentResult">
             <div className="card-body">
               <h2 className="h6 mb-3">Student Result Sheet</h2>
+              <div className="small text-muted mb-3">
+                Class: {classMeta?.grade || '-'} | Homeroom Teacher:{' '}
+                {classMeta?.homeroom_teacher || 'Not assigned'} | Academic Year:{' '}
+                {classMeta?.academic_year || '-'} | Semester: {classMeta?.semester || '-'}
+              </div>
 
               <div className="mb-3">
                 <label className="form-label" htmlFor="reportStudentSelect">
@@ -318,7 +410,7 @@ export default function Reports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedReport.subjectMarks.map((m) => {
+                        {(selectedReport.subjectMarks ?? []).map((m) => {
                           const mark = m.mark ?? null;
                           const markText = mark === null ? '-' : String(mark);
                           const result = mark === null ? '-' : mark >= 50 ? 'PASS' : 'FAIL';
@@ -377,8 +469,9 @@ export default function Reports() {
                 </div>
               )}
             </div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </main>
   );
