@@ -11,6 +11,11 @@ const EMPTY_SUBJECT = {
   teacher_id: ''
 };
 
+const EMPTY_DEPARTMENT = {
+  department_id: null,
+  department_name: ''
+};
+
 export default function Subjects() {
   const api = useApi();
 
@@ -24,6 +29,11 @@ export default function Subjects() {
   const [pageAlert, setPageAlert] = useState(null);
   const [deptAlert, setDeptAlert] = useState(null);
 
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [deptModalAlert, setDeptModalAlert] = useState(null);
+  const [deptForm, setDeptForm] = useState(EMPTY_DEPARTMENT);
+  const deptModalTitle = deptForm.department_id ? 'Edit Department' : 'Add Department';
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalAlert, setModalAlert] = useState(null);
   const [subjectForm, setSubjectForm] = useState(EMPTY_SUBJECT);
@@ -32,6 +42,10 @@ export default function Subjects() {
   const canSave = useMemo(() => {
     return subjectForm.subject_name.trim().length > 0 && subjectForm.department_id !== '';
   }, [subjectForm]);
+
+  const canSaveDepartment = useMemo(() => {
+    return deptForm.department_name.trim().length > 0;
+  }, [deptForm]);
 
   const selectedDepartmentId = subjectForm.department_id
     ? Number(subjectForm.department_id)
@@ -82,7 +96,7 @@ export default function Subjects() {
     setModalOpen(true);
   }
 
-  async function onDelete(subjectId) {
+  async function onDeleteSubject(subjectId) {
     const ok = window.confirm('Delete this subject? Marks for this subject will also be deleted.');
     if (!ok) return;
 
@@ -136,6 +150,56 @@ export default function Subjects() {
     }
   }
 
+  function openEditDepartment(dept) {
+    setDeptModalAlert(null);
+    setDeptForm({
+      department_id: dept.department_id,
+      department_name: dept.department_name ?? ''
+    });
+    setDeptModalOpen(true);
+  }
+
+  async function onSaveDepartment() {
+    setDeptModalAlert(null);
+    if (!canSaveDepartment) {
+      setDeptModalAlert({ type: 'warning', message: 'Department name is required.' });
+      return;
+    }
+
+    try {
+      if (deptForm.department_id) {
+        await api(`/departments/${deptForm.department_id}`, {
+          method: 'PUT',
+          body: { department_name: deptForm.department_name }
+        });
+        setDeptAlert({ type: 'success', message: 'Department updated.' });
+      } else {
+        await api('/departments', { method: 'POST', body: { department_name: deptForm.department_name } });
+        setDeptAlert({ type: 'success', message: 'Department added.' });
+      }
+
+      setDeptModalOpen(false);
+      setDeptForm(EMPTY_DEPARTMENT);
+      await loadAll();
+    } catch (err) {
+      setDeptModalAlert({ type: 'danger', message: err?.message || 'Save failed' });
+    }
+  }
+
+  async function onDeleteDepartment(deptId) {
+    const ok = window.confirm('Delete this department? Related subjects and teachers may block deletion.');
+    if (!ok) return;
+
+    setDeptAlert(null);
+    try {
+      await api(`/departments/${deptId}`, { method: 'DELETE' });
+      await loadAll();
+      setDeptAlert({ type: 'success', message: 'Department deleted.' });
+    } catch (err) {
+      setDeptAlert({ type: 'danger', message: err?.message || 'Delete failed' });
+    }
+  }
+
   return (
     <main className="container py-4">
       <div className="mb-3">
@@ -174,18 +238,19 @@ export default function Subjects() {
                     <tr>
                       <th>ID</th>
                       <th>Name</th>
+                      <th style={{ width: 150 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={2} className="text-center text-muted py-3">
+                        <td colSpan={3} className="text-center text-muted py-3">
                           Loading...
                         </td>
                       </tr>
                     ) : departments.length === 0 ? (
                       <tr>
-                        <td colSpan={2} className="text-center text-muted py-3">
+                        <td colSpan={3} className="text-center text-muted py-3">
                           No departments yet.
                         </td>
                       </tr>
@@ -194,6 +259,24 @@ export default function Subjects() {
                         <tr key={d.department_id}>
                           <td>{d.department_id}</td>
                           <td>{d.department_name}</td>
+                          <td>
+                            <div className="d-flex gap-2">
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                type="button"
+                                onClick={() => openEditDepartment(d)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                type="button"
+                                onClick={() => onDeleteDepartment(d.department_id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -258,7 +341,7 @@ export default function Subjects() {
                             <button
                               className="btn btn-sm btn-outline-danger"
                               type="button"
-                              onClick={() => onDelete(s.subject_id)}
+                              onClick={() => onDeleteSubject(s.subject_id)}
                             >
                               Delete
                             </button>
@@ -273,6 +356,46 @@ export default function Subjects() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={deptModalOpen}
+        title={deptModalTitle}
+        onClose={() => setDeptModalOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setDeptModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onSaveDepartment}
+              disabled={!canSaveDepartment}
+            >
+              Save
+            </button>
+          </>
+        }
+      >
+        <Alert alert={deptModalAlert} onClose={() => setDeptModalAlert(null)} />
+
+        <div className="mb-0">
+          <label className="form-label" htmlFor="departmentName">
+            Department Name
+          </label>
+          <input
+            className="form-control"
+            id="departmentName"
+            required
+            value={deptForm.department_name}
+            onChange={(e) => setDeptForm((v) => ({ ...v, department_name: e.target.value }))}
+          />
+        </div>
+      </Modal>
 
       <Modal
         open={modalOpen}
