@@ -1,14 +1,23 @@
-# Student Academic Record Management System (Web App)
+# Student Academic Record Management System (SAM)
 
 Tech stack:
-- Frontend: HTML, CSS, Bootstrap, JavaScript
+- Frontend: React + Vite + Bootstrap
 - Backend: Node.js + Express.js
-- Database: MySQL
+- Database: MySQL (XAMPP)
 
-## 1) Database setup (MySQL)
+## Quick start (new user)
 
-1. Open `backend/sql/create_tables.sql` and run it in MySQL (it creates the database + tables).
-2. Run `backend/sql/sample_data.sql` to insert default departments + 5 subjects.
+### 1) Start MySQL (XAMPP)
+
+1. Open XAMPP Control Panel
+2. Start MySQL  
+   (Apache is only needed if you want to use phpMyAdmin.)
+
+### 2) Create database + sample data
+
+Run these SQL files in MySQL:
+1. `backend/sql/create_tables.sql` (creates DB + tables)
+2. `backend/sql/sample_data.sql` (adds sample departments/subjects + sample teachers)
 
 Example (MySQL CLI):
 ```sql
@@ -16,44 +25,57 @@ SOURCE backend/sql/create_tables.sql;
 SOURCE backend/sql/sample_data.sql;
 ```
 
-## 2) Backend setup (Node.js)
+### 3) Backend (API) - start `server.js`
 
-1. Configure environment variables:
-   - Copy `backend/.env.example` to `backend/.env`
-   - Update `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-
-2. Install dependencies:
 ```powershell
 cd backend
+Copy-Item .env.example .env
 npm install
+node server.js
 ```
 
-3. Start the server:
+Backend default: `http://localhost:3000`
+
+### 4) Frontend (Vite) - run dev server
+
 ```powershell
-npm start
+cd frontend
+npm install
+npm run dev
 ```
 
-Server default: `http://localhost:3000`
+- Vite uses `src/main.jsx` as the entry.
+- When the dev server starts, press `o` in the terminal or open the printed URL (usually `http://localhost:5173`).
+- The frontend dev server proxies `/api` to the backend (see `frontend/vite.config.js`).
 
-On first start, if the `admins` table is empty, the backend creates:
+## Login (Admin / Teachers / Homeroom Teacher)
+
+Open the app and go to:
+- `http://localhost:5173/#/login`
+
+After login, the app redirects based on role:
+- Admin -> Dashboard
+- Subject Teacher -> Marks
+- Homeroom Teacher -> Reports
+
+### Default accounts
+
+Admin (created automatically on first backend start if `admins` table is empty):
 - Username: `admin`
 - Password: `admin123`
 
-## 3) Frontend
+Teachers (only if you ran `backend/sql/sample_data.sql`):
+- Password for all sample teachers: `teacher123`
+- Subject teachers: `genet`, `alemu`, `tola`, `olyad`, `alemayehu`
+- Homeroom teacher (class `9A`): `addisu`
 
-The backend serves the frontend automatically from the `frontend/` folder.
-Open in your browser:
-- `http://localhost:3000/`
+If you did not run the sample data, log in as Admin and create teacher accounts in the Teachers page.
 
-## Main features
+### Page access (what each user can open)
 
-- Admin login (session-based) + logout
-- Students: create, view, update, delete
-- Subjects: create, view, update, delete (scalable)
-- Departments: create + list
-- Teachers: create, view, update, delete + homeroom validation
-- Marks: enter/update per student per subject (0–100)
-- Reports: total, average, rank (by total), PASS/FAIL (any subject < 50 = FAIL)
+- Admin: Students, Subjects, Teachers
+- Subject Teacher: Marks
+- Homeroom Teacher: Reports
 
 ## API (summary)
 
@@ -62,6 +84,6 @@ All API endpoints are under `/api` (most require login session).
 - Students: `GET/POST /api/students`, `PUT/DELETE /api/students/:id`
 - Subjects: `GET/POST /api/subjects`, `PUT/DELETE /api/subjects/:id`
 - Teachers: `GET/POST /api/teachers`, `PUT/DELETE /api/teachers/:id`
-- Departments: `GET/POST /api/departments`
+- Departments: `GET /api/departments`
 - Marks: `GET/POST /api/marks`, `POST /api/marks/bulk`, `PUT/DELETE /api/marks/:id`
 - Reports: `GET /api/reports`, `GET /api/reports/:studentId`

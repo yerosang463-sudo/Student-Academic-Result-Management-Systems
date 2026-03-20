@@ -315,7 +315,7 @@ export default function Reports() {
                           >
                             <td className="fw-semibold">{r.student.student_name}</td>
                             <td>{r.student.gender}</td>
-                            <td>{r.student.student_code ?? r.student.student_id}</td>
+                            <td>{r.student.student_id}</td>
                             {subjects.map((sub) => {
                               const mark = marksBySubject.get(sub.subject_id);
                               const missing = mark === null || mark === undefined || mark === '';
@@ -384,7 +384,7 @@ export default function Reports() {
                   <option value="">Select...</option>
                   {rankedReports.map((r) => (
                     <option key={r.student.student_id} value={r.student.student_id}>
-                      {r.student.student_name} (ID: {r.student.student_code ?? r.student.student_id})
+                      {r.student.student_name} (ID: {r.student.student_id})
                     </option>
                   ))}
                 </select>
@@ -394,7 +394,7 @@ export default function Reports() {
                 <div id="sheetArea">
                   <div className="small text-muted mb-2" id="sheetHeader">
                     Student: {selectedReport.student.student_name} | ID:{' '}
-                    {selectedReport.student.student_code ?? selectedReport.student.student_id} | Grade:{' '}
+                    {selectedReport.student.student_id} | Grade:{' '}
                     {selectedReport.student.grade} | Homeroom Teacher:{' '}
                     {selectedReport.homeroom_teacher?.teacher_name ?? 'Not assigned'} | Year:{' '}
                     {selectedReport.student.academic_year} | Semester: {selectedReport.student.semester}

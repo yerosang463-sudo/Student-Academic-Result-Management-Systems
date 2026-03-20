@@ -37,7 +37,7 @@ async function buildReports({ classFilter = null } = {}) {
   const studentWhere = classFilter ? 'WHERE grade = ?' : '';
   const studentParams = classFilter ? [classFilter] : [];
   const [students] = await pool.execute(
-    `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
+    `SELECT student_id, student_name, gender, grade, academic_year, semester
      FROM students
      ${studentWhere}
      ORDER BY student_id ASC`,

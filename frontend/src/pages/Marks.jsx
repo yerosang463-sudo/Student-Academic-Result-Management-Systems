@@ -370,7 +370,7 @@ export default function Marks() {
                   const status = computeStatus(value);
                   return (
                     <tr key={student.student_id}>
-                      <td>{student.student_code ?? student.student_id}</td>
+                      <td>{student.student_id}</td>
                       <td>{student.student_name}</td>
                       <td>
                         <input

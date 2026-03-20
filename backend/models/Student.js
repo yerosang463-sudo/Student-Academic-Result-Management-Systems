@@ -20,7 +20,7 @@ async function list({ grade = null, academic_year = null, semester = null } = {}
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const [rows] = await pool.execute(
-    `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
+    `SELECT student_id, student_name, gender, grade, academic_year, semester
      FROM students
      ${whereSql}
      ORDER BY student_id DESC`,
@@ -31,7 +31,7 @@ async function list({ grade = null, academic_year = null, semester = null } = {}
 
 async function getById(studentId) {
   const [rows] = await pool.execute(
-    `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
+    `SELECT student_id, student_name, gender, grade, academic_year, semester
      FROM students
      WHERE student_id = ?`,
     [studentId]
@@ -41,10 +41,9 @@ async function getById(studentId) {
 
 async function create(student) {
   const [result] = await pool.execute(
-    `INSERT INTO students (student_code, student_name, gender, grade, academic_year, semester)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO students (student_name, gender, grade, academic_year, semester)
+     VALUES (?, ?, ?, ?, ?)`,
     [
-      student.student_code,
       student.student_name,
       student.gender,
       student.grade,
@@ -58,10 +57,9 @@ async function create(student) {
 async function update(studentId, student) {
   const [result] = await pool.execute(
     `UPDATE students
-     SET student_code = ?, student_name = ?, gender = ?, grade = ?, academic_year = ?, semester = ?
+     SET student_name = ?, gender = ?, grade = ?, academic_year = ?, semester = ?
      WHERE student_id = ?`,
     [
-      student.student_code,
       student.student_name,
       student.gender,
       student.grade,

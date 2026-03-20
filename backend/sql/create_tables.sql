@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS admins (
 
 CREATE TABLE IF NOT EXISTS students (
   student_id INT NOT NULL AUTO_INCREMENT,
-  student_code VARCHAR(50) NOT NULL,
   student_name VARCHAR(150) NOT NULL,
   gender ENUM('Male','Female','Other') NOT NULL,
   grade VARCHAR(20) NOT NULL,
@@ -34,8 +33,7 @@ CREATE TABLE IF NOT EXISTS students (
   semester VARCHAR(20) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (student_id),
-  UNIQUE KEY uq_students_code (student_code)
+  PRIMARY KEY (student_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS teachers (

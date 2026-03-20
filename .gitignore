@@ -49,3 +49,12 @@ Desktop.ini
 !.vscode/tasks.json
 .idea/
 *.iml
+
+# Local documents (do not commit)
+PROJECT_REPORT.*
+*.pdf
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.xlsx
