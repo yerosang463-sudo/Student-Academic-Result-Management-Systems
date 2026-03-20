@@ -1,5 +1,6 @@
 const Subject = require('../models/Subject');
 const Teacher = require('../models/Teacher');
+const { normalizeSubjectStartYear } = require('../utils/yearUtils');
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -34,7 +35,7 @@ async function getAllSubjects(req, res, next) {
 
 async function createSubject(req, res, next) {
   try {
-    const { subject_name, department_id, teacher_id, total_mark } = req.body ?? {};
+    const { subject_name, department_id, teacher_id, total_mark, start_year } = req.body ?? {};
 
     if (!isNonEmptyString(subject_name)) {
       return res.status(400).json({ error: 'Subject_Name is required' });
@@ -49,6 +50,12 @@ async function createSubject(req, res, next) {
     const markNum = total_mark === undefined || total_mark === '' ? 100 : Number(total_mark);
     if (!Number.isFinite(markNum) || markNum !== 100) {
       return res.status(400).json({ error: 'Total mark must be exactly 100' });
+    }
+    const normalizedStartYear = normalizeSubjectStartYear(start_year);
+    if (!normalizedStartYear.ok) {
+      return res
+        .status(400)
+        .json({ error: 'Start year must be a 4-digit year between 1900 and 2999' });
     }
 
     if (teacherId) {
@@ -72,6 +79,7 @@ async function createSubject(req, res, next) {
       subject_name: subject_name.trim(),
       department_id: deptId,
       teacher_id: teacherId,
+      start_year: normalizedStartYear.value,
       total_mark: 100
     });
 
@@ -93,7 +101,7 @@ async function updateSubject(req, res, next) {
     const subjectId = parsePositiveInt(req.params.id);
     if (!subjectId) return res.status(400).json({ error: 'Invalid subject id' });
 
-    const { subject_name, department_id, teacher_id, total_mark } = req.body ?? {};
+    const { subject_name, department_id, teacher_id, total_mark, start_year } = req.body ?? {};
 
     if (!isNonEmptyString(subject_name)) {
       return res.status(400).json({ error: 'Subject_Name is required' });
@@ -108,6 +116,12 @@ async function updateSubject(req, res, next) {
     const markNum = total_mark === undefined || total_mark === '' ? 100 : Number(total_mark);
     if (!Number.isFinite(markNum) || markNum !== 100) {
       return res.status(400).json({ error: 'Total mark must be exactly 100' });
+    }
+    const normalizedStartYear = normalizeSubjectStartYear(start_year);
+    if (!normalizedStartYear.ok) {
+      return res
+        .status(400)
+        .json({ error: 'Start year must be a 4-digit year between 1900 and 2999' });
     }
 
     if (teacherId) {
@@ -131,6 +145,7 @@ async function updateSubject(req, res, next) {
       subject_name: subject_name.trim(),
       department_id: deptId,
       teacher_id: teacherId,
+      start_year: normalizedStartYear.value,
       total_mark: 100
     });
 

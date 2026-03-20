@@ -19,7 +19,8 @@ async function list({ teacher_id = null } = {}) {
         s.department_id,
         d.department_name,
         s.teacher_id,
-        t.teacher_name
+        t.teacher_name,
+        s.start_year
      FROM subjects s
      LEFT JOIN departments d ON d.department_id = s.department_id
      LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
@@ -32,12 +33,25 @@ async function list({ teacher_id = null } = {}) {
 
 async function getById(subjectId) {
   const [rows] = await pool.execute(
-    `SELECT subject_id, subject_name, total_mark, department_id, teacher_id
+    `SELECT subject_id, subject_name, total_mark, department_id, teacher_id, start_year
      FROM subjects
      WHERE subject_id = ?`,
     [subjectId]
   );
   return rows[0] ?? null;
+}
+
+async function listByIds(subjectIds) {
+  if (!Array.isArray(subjectIds) || subjectIds.length === 0) return [];
+
+  const placeholders = subjectIds.map(() => '?').join(', ');
+  const [rows] = await pool.execute(
+    `SELECT subject_id, subject_name, total_mark, department_id, teacher_id, start_year
+     FROM subjects
+     WHERE subject_id IN (${placeholders})`,
+    subjectIds
+  );
+  return rows;
 }
 
 async function isAssignedToTeacher(subjectId, teacherId) {
@@ -52,12 +66,13 @@ async function isAssignedToTeacher(subjectId, teacherId) {
 
 async function create(subject) {
   const [result] = await pool.execute(
-    `INSERT INTO subjects (subject_name, department_id, teacher_id, total_mark)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO subjects (subject_name, department_id, teacher_id, start_year, total_mark)
+     VALUES (?, ?, ?, ?, ?)`,
     [
       subject.subject_name,
       subject.department_id ?? null,
       subject.teacher_id ?? null,
+      subject.start_year ?? null,
       subject.total_mark ?? 100
     ]
   );
@@ -67,12 +82,13 @@ async function create(subject) {
 async function update(subjectId, subject) {
   const [result] = await pool.execute(
     `UPDATE subjects
-     SET subject_name = ?, department_id = ?, teacher_id = ?, total_mark = ?
+     SET subject_name = ?, department_id = ?, teacher_id = ?, start_year = ?, total_mark = ?
      WHERE subject_id = ?`,
     [
       subject.subject_name,
       subject.department_id ?? null,
       subject.teacher_id ?? null,
+      subject.start_year ?? null,
       subject.total_mark ?? 100,
       subjectId
     ]
@@ -90,6 +106,7 @@ async function remove(subjectId) {
 module.exports = {
   list,
   getById,
+  listByIds,
   isAssignedToTeacher,
   create,
   update,

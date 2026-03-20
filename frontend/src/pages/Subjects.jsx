@@ -8,7 +8,8 @@ const EMPTY_SUBJECT = {
   subject_id: null,
   subject_name: '',
   department_id: '',
-  teacher_id: ''
+  teacher_id: '',
+  start_year: ''
 };
 
 const EMPTY_DEPARTMENT = {
@@ -93,7 +94,8 @@ export default function Subjects() {
       subject_id: subject.subject_id,
       subject_name: subject.subject_name ?? '',
       department_id: subject.department_id ?? '',
-      teacher_id: subject.teacher_id ?? ''
+      teacher_id: subject.teacher_id ?? '',
+      start_year: subject.start_year ?? ''
     });
     setModalOpen(true);
   }
@@ -114,11 +116,17 @@ export default function Subjects() {
 
   async function onSaveSubject() {
     setModalAlert(null);
+    const normalizedStartYear = String(subjectForm.start_year ?? '').trim();
+    if (normalizedStartYear && !/^\d{4}$/.test(normalizedStartYear)) {
+      setModalAlert({ type: 'warning', message: 'Start year must be a 4-digit year (example: 2018).' });
+      return;
+    }
 
     const payload = {
       subject_name: subjectForm.subject_name,
       department_id: subjectForm.department_id || null,
       teacher_id: subjectForm.teacher_id || null,
+      start_year: normalizedStartYear || null,
       total_mark: 100
     };
 
@@ -306,6 +314,7 @@ export default function Subjects() {
                     <th>Subject</th>
                     <th style={{ width: 160 }}>Department</th>
                     <th style={{ width: 180 }}>Teacher</th>
+                    <th style={{ width: 120 }}>Start Year</th>
                     <th style={{ width: 120 }}>Total Mark</th>
                     <th style={{ width: 160 }}>Actions</th>
                   </tr>
@@ -313,13 +322,13 @@ export default function Subjects() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="text-center text-muted py-4">
+                      <td colSpan={7} className="text-center text-muted py-4">
                         Loading...
                       </td>
                     </tr>
                   ) : subjects.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center text-muted py-4">
+                      <td colSpan={7} className="text-center text-muted py-4">
                         No subjects found.
                       </td>
                     </tr>
@@ -330,6 +339,7 @@ export default function Subjects() {
                         <td>{s.subject_name}</td>
                         <td>{s.department_name ?? ''}</td>
                         <td>{s.teacher_name ?? ''}</td>
+                        <td>{s.start_year ?? 'All years'}</td>
                         <td>{s.total_mark}</td>
                         <td>
                           <div className="d-flex gap-2">
@@ -484,6 +494,25 @@ export default function Subjects() {
           </select>
           <div className="form-text">
             Only Subject Teachers from the selected department are shown.
+          </div>
+        </div>
+
+        <div className="mb-0">
+          <label className="form-label" htmlFor="subjectStartYear">
+            Start Year (Optional)
+          </label>
+          <input
+            className="form-control"
+            id="subjectStartYear"
+            type="number"
+            min="1900"
+            max="2999"
+            placeholder="e.g., 2018"
+            value={subjectForm.start_year}
+            onChange={(e) => setSubjectForm((v) => ({ ...v, start_year: e.target.value }))}
+          />
+          <div className="form-text mb-3">
+            If set to 2018, only students registered in 2018 and above can take this subject.
           </div>
         </div>
 

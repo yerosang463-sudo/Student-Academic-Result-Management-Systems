@@ -18,6 +18,22 @@ function sortText(a, b) {
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function parseAcademicYear(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  const match = text.match(/\d{4}/);
+  if (!match) return null;
+  const year = Number(match[0]);
+  return Number.isInteger(year) ? year : null;
+}
+
+function isStudentEligible(student, subject) {
+  if (!subject || subject.start_year === null || subject.start_year === undefined) return true;
+  const year = parseAcademicYear(student?.academic_year);
+  if (!year) return false;
+  return year >= Number(subject.start_year);
+}
+
 export default function Marks() {
   const api = useApi();
   const { user } = useAuth();
@@ -57,7 +73,8 @@ export default function Marks() {
     return subjects
       .map((subject) => ({
         id: String(subject.subject_id),
-        name: subject.subject_name
+        name: subject.subject_name,
+        start_year: subject.start_year ?? null
       }))
       .sort((a, b) => sortText(a.name, b.name));
   }, [subjects]);
@@ -92,19 +109,25 @@ export default function Marks() {
     });
   }, [subjectOptions]);
 
+  const selectedSubject = useMemo(() => {
+    if (!selectedSubjectId) return null;
+    return subjects.find((subject) => String(subject.subject_id) === selectedSubjectId) ?? null;
+  }, [subjects, selectedSubjectId]);
+
   const filteredStudents = useMemo(() => {
     if (!selectedClass || !selectedSemester) return [];
+    if (!selectedSubjectId || !selectedSubject) return [];
     return students.filter((student) => {
       const grade = String(student.grade ?? '').trim();
       const semester = String(student.semester ?? '').trim();
-      return grade === selectedClass && semester === selectedSemester;
+      if (grade !== selectedClass || semester !== selectedSemester) return false;
+      return isStudentEligible(student, selectedSubject);
     });
-  }, [students, selectedClass, selectedSemester]);
+  }, [students, selectedClass, selectedSemester, selectedSubjectId, selectedSubject]);
 
   const selectedSubjectName = useMemo(() => {
-    return subjects.find((subject) => String(subject.subject_id) === selectedSubjectId)
-      ?.subject_name;
-  }, [subjects, selectedSubjectId]);
+    return selectedSubject?.subject_name;
+  }, [selectedSubject]);
 
   const canInteract = useMemo(() => {
     return !!selectedSubjectId && !!selectedClass && !!selectedSemester && !busy;
@@ -174,7 +197,12 @@ export default function Marks() {
     }
 
     if (filteredStudents.length === 0) {
-      setAlert({ type: 'warning', message: 'No students found for this class and semester.' });
+      setAlert({
+        type: 'warning',
+        message: selectedSubject?.start_year
+          ? `No eligible students found (requires ${selectedSubject.start_year} and above).`
+          : 'No students found for this class and semester.'
+      });
       return;
     }
 
@@ -206,7 +234,16 @@ export default function Marks() {
     } finally {
       setBusy(false);
     }
-  }, [api, filteredStudents, loadMarks, marksByStudent, selectedClass, selectedSemester, selectedSubjectId]);
+  }, [
+    api,
+    filteredStudents,
+    loadMarks,
+    marksByStudent,
+    selectedClass,
+    selectedSemester,
+    selectedSubject,
+    selectedSubjectId
+  ]);
 
   const onReload = useCallback(async () => {
     setAlert(null);
@@ -328,6 +365,9 @@ export default function Marks() {
               ? `Class ${selectedClass} | Semester ${selectedSemester}`
               : 'Select class and semester'}
           </div>
+          {selectedSubject?.start_year ? (
+            <div className="text-muted small">{`Eligible students: ${selectedSubject.start_year} and above`}</div>
+          ) : null}
         </div>
         <div className="table-responsive">
           <table className="table table-striped mb-0">
@@ -361,7 +401,9 @@ export default function Marks() {
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center text-muted py-4">
-                    No students found for this class and semester.
+                    {selectedSubject?.start_year
+                      ? `No eligible students found (requires ${selectedSubject.start_year} and above).`
+                      : 'No students found for this class and semester.'}
                   </td>
                 </tr>
               ) : (

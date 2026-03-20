@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS subjects (
   subject_name VARCHAR(150) NOT NULL,
   department_id INT NOT NULL,
   teacher_id INT NULL,
+  start_year INT NULL,
   total_mark INT NOT NULL DEFAULT 100,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS subjects (
   UNIQUE KEY uq_subjects_name (subject_name),
   KEY idx_subjects_department (department_id),
   KEY idx_subjects_teacher (teacher_id),
+  CONSTRAINT chk_subject_start_year CHECK (start_year IS NULL OR (start_year >= 1900 AND start_year <= 2999)),
   CONSTRAINT chk_subject_total_mark CHECK (total_mark = 100),
   CONSTRAINT fk_subjects_department
     FOREIGN KEY (department_id)

@@ -1,5 +1,7 @@
 const Mark = require('../models/Mark');
 const Subject = require('../models/Subject');
+const Student = require('../models/Student');
+const { isStudentEligibleForSubject } = require('../utils/yearUtils');
 
 function parsePositiveInt(value) {
   const num = Number(value);
@@ -70,6 +72,18 @@ async function upsertMark(req, res, next) {
         return res.status(403).json({ error: 'Not allowed to record marks for this subject' });
       }
     }
+    const [student, subject] = await Promise.all([
+      Student.getById(studentId),
+      Subject.getById(subjectId)
+    ]);
+    if (!student || !subject) {
+      return res.status(400).json({ error: 'Student or Subject does not exist' });
+    }
+    if (!isStudentEligibleForSubject(student.academic_year, subject.start_year)) {
+      return res.status(400).json({
+        error: `This subject is only for students registered in ${subject.start_year} and above`
+      });
+    }
 
     const teacherId = isSubjectTeacher(user) ? user.teacher_id : null;
 
@@ -112,7 +126,12 @@ async function bulkUpsertMarks(req, res, next) {
           return res.status(403).json({ error: 'Not allowed to record marks for this subject' });
         }
       }
+      const subject = await Subject.getById(subjectId);
+      if (!subject) {
+        return res.status(400).json({ error: 'Student or Subject does not exist' });
+      }
 
+      const uniqueStudentIds = new Set();
       for (const item of marks) {
         const sId = parsePositiveInt(item?.student_id);
         const markValue = parseMark(item?.mark);
@@ -126,7 +145,22 @@ async function bulkUpsertMarks(req, res, next) {
             .json({ error: 'Each mark must be an integer between 0 and 100' });
         }
 
+        uniqueStudentIds.add(sId);
         normalized.push({ student_id: sId, mark: markValue });
+      }
+      if (subject.start_year !== null && subject.start_year !== undefined) {
+        const students = await Student.getByIds([...uniqueStudentIds]);
+        if (students.length !== uniqueStudentIds.size) {
+          return res.status(400).json({ error: 'Student or Subject does not exist' });
+        }
+        const blocked = students.filter(
+          (student) => !isStudentEligibleForSubject(student.academic_year, subject.start_year)
+        );
+        if (blocked.length > 0) {
+          return res.status(400).json({
+            error: `This subject is only for students registered in ${subject.start_year} and above`
+          });
+        }
       }
 
       const teacherId = isSubjectTeacher(user) ? user.teacher_id : null;
@@ -142,6 +176,12 @@ async function bulkUpsertMarks(req, res, next) {
       if (isSubjectTeacher(user)) {
         return res.status(403).json({ error: 'Not allowed to bulk-save by student' });
       }
+      const student = await Student.getById(studentId);
+      if (!student) {
+        return res.status(400).json({ error: 'Student or Subject does not exist' });
+      }
+
+      const uniqueSubjectIds = new Set();
 
       for (const item of marks) {
         const subjectIdItem = parsePositiveInt(item?.subject_id);
@@ -156,7 +196,23 @@ async function bulkUpsertMarks(req, res, next) {
             .json({ error: 'Each mark must be an integer between 0 and 100' });
         }
 
+        uniqueSubjectIds.add(subjectIdItem);
         normalized.push({ subject_id: subjectIdItem, mark: markValue });
+      }
+
+      const subjects = await Subject.listByIds([...uniqueSubjectIds]);
+      if (subjects.length !== uniqueSubjectIds.size) {
+        return res.status(400).json({ error: 'Student or Subject does not exist' });
+      }
+
+      const blocked = subjects.filter(
+        (subject) => !isStudentEligibleForSubject(student.academic_year, subject.start_year)
+      );
+      if (blocked.length > 0) {
+        const firstSubject = blocked[0];
+        return res.status(400).json({
+          error: `Subject "${firstSubject.subject_name}" is only for students registered in ${firstSubject.start_year} and above`
+        });
       }
 
       const saved = await Mark.bulkUpsert({ student_id: studentId, marks: normalized });

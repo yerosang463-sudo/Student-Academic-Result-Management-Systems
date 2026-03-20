@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { isStudentEligibleForSubject } = require('../utils/yearUtils');
 
 function parsePositiveInt(value) {
   const num = Number(value);
@@ -29,7 +30,7 @@ function applyDenseRank(reports) {
 
 async function buildReports({ classFilter = null } = {}) {
   const [subjects] = await pool.execute(
-    `SELECT subject_id, subject_name, total_mark
+    `SELECT subject_id, subject_name, total_mark, start_year
      FROM subjects
      ORDER BY subject_id ASC`
   );
@@ -59,9 +60,7 @@ async function buildReports({ classFilter = null } = {}) {
     studentMarks.get(m.student_id).set(m.subject_id, m.mark);
   }
 
-  const subjectCount = subjects.length;
   const passPercent = 50;
-  const totalOutOf = subjects.reduce((sum, item) => sum + Number(item.total_mark || 0), 0);
   const homeroomByClass = new Map(
     homerooms
       .filter((t) => t.assigned_class)
@@ -71,18 +70,36 @@ async function buildReports({ classFilter = null } = {}) {
   const reports = students.map((st) => {
     const marksMap = studentMarks.get(st.student_id) ?? new Map();
     const subjectMarks = subjects.map((sub) => {
+      const isEligible = isStudentEligibleForSubject(st.academic_year, sub.start_year);
+      if (!isEligible) {
+        return {
+          subject_id: sub.subject_id,
+          subject_name: sub.subject_name,
+          total_mark: sub.total_mark,
+          start_year: sub.start_year ?? null,
+          is_eligible: false,
+          mark: null
+        };
+      }
+
       const mark = marksMap.has(sub.subject_id) ? marksMap.get(sub.subject_id) : null;
       return {
         subject_id: sub.subject_id,
         subject_name: sub.subject_name,
         total_mark: sub.total_mark,
+        start_year: sub.start_year ?? null,
+        is_eligible: true,
         mark
       };
     });
 
-    const total = subjectMarks.reduce((sum, item) => sum + (item.mark ?? 0), 0);
-    const average = subjectCount > 0 ? total / subjectCount : 0;
-    const hasMissing = subjectMarks.some((item) => item.mark === null || item.mark === undefined);
+    const eligibleSubjects = subjectMarks.filter((item) => item.is_eligible);
+    const totalOutOf = eligibleSubjects.reduce((sum, item) => sum + Number(item.total_mark || 0), 0);
+    const total = eligibleSubjects.reduce((sum, item) => sum + (item.mark ?? 0), 0);
+    const average = eligibleSubjects.length > 0 ? total / eligibleSubjects.length : 0;
+    const hasMissing = eligibleSubjects.some(
+      (item) => item.mark === null || item.mark === undefined
+    );
     const status = computeStatus({ total, totalOutOf, hasMissing, passPercent });
     const classKey = st.grade ? String(st.grade).trim() : '';
     const homeroomTeacher = classKey ? homeroomByClass.get(classKey) ?? null : null;
@@ -110,7 +127,7 @@ async function getReports(req, res, next) {
 
     if (user?.role === 'Homeroom Teacher' && !classFilter) {
       const [subjects] = await pool.execute(
-        `SELECT subject_id, subject_name, total_mark
+        `SELECT subject_id, subject_name, total_mark, start_year
          FROM subjects
          ORDER BY subject_id ASC`
       );

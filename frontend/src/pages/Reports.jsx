@@ -305,7 +305,7 @@ export default function Reports() {
                     ) : (
                       tableReports.map((r) => {
                         const marksBySubject = new Map(
-                          (r.subjectMarks ?? []).map((m) => [m.subject_id, m.mark])
+                          (r.subjectMarks ?? []).map((m) => [m.subject_id, m])
                         );
                         return (
                           <tr
@@ -317,7 +317,16 @@ export default function Reports() {
                             <td>{r.student.gender}</td>
                             <td>{r.student.student_id}</td>
                             {subjects.map((sub) => {
-                              const mark = marksBySubject.get(sub.subject_id);
+                              const item = marksBySubject.get(sub.subject_id);
+                              const isEligible = item ? item.is_eligible !== false : true;
+                              if (!isEligible) {
+                                return (
+                                  <td key={`${r.student.student_id}-${sub.subject_id}`} className="text-muted">
+                                    N/A
+                                  </td>
+                                );
+                              }
+                              const mark = item?.mark;
                               const missing = mark === null || mark === undefined || mark === '';
                               const markText = missing ? '-' : String(mark);
                               const markClass = missing
@@ -411,6 +420,15 @@ export default function Reports() {
                       </thead>
                       <tbody>
                         {(selectedReport.subjectMarks ?? []).map((m) => {
+                          if (m.is_eligible === false) {
+                            return (
+                              <tr key={m.subject_id}>
+                                <td>{m.subject_name}</td>
+                                <td className="fw-semibold text-muted">N/A</td>
+                                <td className="text-muted fw-semibold">N/A</td>
+                              </tr>
+                            );
+                          }
                           const mark = m.mark ?? null;
                           const markText = mark === null ? '-' : String(mark);
                           const result = mark === null ? '-' : mark >= 50 ? 'PASS' : 'FAIL';
