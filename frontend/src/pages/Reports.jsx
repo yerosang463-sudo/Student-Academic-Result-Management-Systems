@@ -127,6 +127,11 @@ export default function Reports() {
     return rankedReports.find((r) => r.student?.student_id === id) ?? null;
   }, [rankedReports, selectedStudentId]);
 
+  const selectedStudentSubjectMarks = useMemo(() => {
+    if (!selectedReport) return [];
+    return (selectedReport.subjectMarks ?? []).filter((item) => item.is_eligible !== false);
+  }, [selectedReport]);
+
   const classMeta = useMemo(() => {
     if (!selectedClassKey) return null;
     const option = classOptions.find((opt) => opt.key === selectedClassKey) ?? null;
@@ -150,9 +155,20 @@ export default function Reports() {
         ? 'Totals, averages, ranks and PASS/FAIL'
         : 'Generate a single student result sheet';
   const rosterTitle = activeView === 'marks' ? 'Student Marks' : 'Class Report';
+  const visibleSubjects = useMemo(() => {
+    if (filteredReports.length === 0) return subjects;
+    return subjects.filter((subject) =>
+      filteredReports.some((report) => {
+        const subjectMark = (report.subjectMarks ?? []).find(
+          (item) => item.subject_id === subject.subject_id
+        );
+        return subjectMark ? subjectMark.is_eligible !== false : true;
+      })
+    );
+  }, [filteredReports, subjects]);
 
   const rosterExtraCols = activeView === 'class' ? 4 : 0;
-  const rosterColSpan = 3 + subjects.length + rosterExtraCols;
+  const rosterColSpan = 3 + visibleSubjects.length + rosterExtraCols;
 
   const showPrint = activeView === 'class' || activeView === 'student';
   const canPrint =
@@ -274,7 +290,7 @@ export default function Reports() {
                       <th>Student Name</th>
                       <th style={{ width: 90 }}>Gender</th>
                       <th style={{ width: 110 }}>ID</th>
-                      {subjects.map((sub) => (
+                      {visibleSubjects.map((sub) => (
                         <th key={sub.subject_id} style={{ width: 90 }}>
                           {sub.subject_name}
                         </th>
@@ -316,14 +332,12 @@ export default function Reports() {
                             <td className="fw-semibold">{r.student.student_name}</td>
                             <td>{r.student.gender}</td>
                             <td>{r.student.student_id}</td>
-                            {subjects.map((sub) => {
+                            {visibleSubjects.map((sub) => {
                               const item = marksBySubject.get(sub.subject_id);
                               const isEligible = item ? item.is_eligible !== false : true;
                               if (!isEligible) {
                                 return (
-                                  <td key={`${r.student.student_id}-${sub.subject_id}`} className="text-muted">
-                                    N/A
-                                  </td>
+                                  <td key={`${r.student.student_id}-${sub.subject_id}`} className="text-muted" />
                                 );
                               }
                               const mark = item?.mark;
@@ -419,34 +433,33 @@ export default function Reports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selectedReport.subjectMarks ?? []).map((m) => {
-                          if (m.is_eligible === false) {
+                        {selectedStudentSubjectMarks.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="text-muted text-center py-3">
+                              No applicable subjects for this student.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedStudentSubjectMarks.map((m) => {
+                            const mark = m.mark ?? null;
+                            const markText = mark === null ? '-' : String(mark);
+                            const result = mark === null ? '-' : mark >= 50 ? 'PASS' : 'FAIL';
+                            const cls =
+                              result === 'PASS'
+                                ? 'text-success'
+                                : result === 'FAIL'
+                                  ? 'text-danger'
+                                  : 'text-muted';
+
                             return (
                               <tr key={m.subject_id}>
                                 <td>{m.subject_name}</td>
-                                <td className="fw-semibold text-muted">N/A</td>
-                                <td className="text-muted fw-semibold">N/A</td>
+                                <td className="fw-semibold">{markText}</td>
+                                <td className={`${cls} fw-semibold`}>{result}</td>
                               </tr>
                             );
-                          }
-                          const mark = m.mark ?? null;
-                          const markText = mark === null ? '-' : String(mark);
-                          const result = mark === null ? '-' : mark >= 50 ? 'PASS' : 'FAIL';
-                          const cls =
-                            result === 'PASS'
-                              ? 'text-success'
-                              : result === 'FAIL'
-                                ? 'text-danger'
-                                : 'text-muted';
-
-                          return (
-                            <tr key={m.subject_id}>
-                              <td>{m.subject_name}</td>
-                              <td className="fw-semibold">{markText}</td>
-                              <td className={`${cls} fw-semibold`}>{result}</td>
-                            </tr>
-                          );
-                        })}
+                          })
+                        )}
                       </tbody>
                       <tfoot className="table-light">
                         <tr>
